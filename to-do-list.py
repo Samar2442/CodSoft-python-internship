@@ -1,87 +1,137 @@
-import json
-import os
+import tkinter as tk
+from tkinter import messagebox
+from datetime import datetime
+from playsound import playsound
 
-# File to store tasks
-TASK_FILE = "tasks.json"
+root = tk.Tk()
+root.title("Todo List App")
+root.geometry("420x550")
+root.resizable(False, False)
 
-# Load tasks from file
-def load_tasks():
-    if os.path.exists(TASK_FILE):
-        with open(TASK_FILE, "r") as f:
-            return json.load(f)
-    return []
+# Global theme state
+is_dark_theme = False
 
-# Save tasks to file
-def save_tasks(tasks):
-    with open(TASK_FILE, "w") as f:
-        json.dump(tasks, f, indent=4)
+# Task list
+tasks = []
 
-# Show menu
-def show_menu():
-    print("\n--- To-Do List ---")
-    print("1. View Tasks")
-    print("2. Add Task")
-    print("3. Mark Task as Completed")
-    print("4. Delete Task")
-    print("5. Exit")
-
-# Display all tasks
-def view_tasks(tasks):
-    if not tasks:
-        print("No tasks found.")
-    else:
-        for i, task in enumerate(tasks, 1):
-            status = "✅" if task['completed'] else "❌"
-            print(f"{i}. [{status}] {task['title']}")
+# Format current date & time
+def get_timestamp():
+    return datetime.now().strftime("%d %b %Y, %I:%M %p")
 
 # Add a new task
-def add_task(tasks):
-    title = input("Enter task: ")
-    tasks.append({"title": title, "completed": False})
-    print("Task added.")
-
-# Mark a task as complete
-def mark_task_complete(tasks):
-    view_tasks(tasks)
-    index = int(input("Enter task number to mark complete: ")) - 1
-    if 0 <= index < len(tasks):
-        tasks[index]['completed'] = True
-        print("Task marked as completed.")
+def add_task():
+    title = task_entry.get().strip()
+    if title:
+        timestamp = get_timestamp()
+        tasks.append({"title": title, "completed": False, "time": timestamp})
+        task_entry.delete(0, tk.END)
+        update_listbox()
+        playsound("add.wav") 
+        messagebox.showinfo("Task Added", f"Task '{title}' added successfully!")
     else:
-        print("Invalid task number.")
+        messagebox.showwarning("Input Error", "Please enter a task!")
 
-# Delete a task
-def delete_task(tasks):
-    view_tasks(tasks)
-    index = int(input("Enter task number to delete: ")) - 1
-    if 0 <= index < len(tasks):
-        deleted = tasks.pop(index)
-        print(f"Deleted task: {deleted['title']}")
+# Mark task as completed
+def mark_done():
+    selected = listbox.curselection()
+    if selected:
+        tasks[selected[0]]["completed"] = True
+        update_listbox()
+        playsound("done.wav")  
     else:
-        print("Invalid task number.")
+        messagebox.showinfo("Select Task", "Please select a task to mark as done.")
 
-# Main function
-def main():
-    tasks = load_tasks()
-    while True:
-        show_menu()
-        choice = input("Choose an option: ")
+# Delete selected task
+def delete_task():
+    selected = listbox.curselection()
+    if selected:
+        tasks.pop(selected[0])
+        update_listbox()
+    else:
+        messagebox.showinfo("Select Task", "Please select a task to delete.")
 
-        if choice == "1":
-            view_tasks(tasks)
-        elif choice == "2":
-            add_task(tasks)
-        elif choice == "3":
-            mark_task_complete(tasks)
-        elif choice == "4":
-            delete_task(tasks)
-        elif choice == "5":
-            save_tasks(tasks)
-            print("Goodbye!")
-            break
+# View stats
+def view_stats():
+    total = len(tasks)
+    completed = sum(1 for t in tasks if t["completed"])
+    pending = total - completed
+    messagebox.showinfo("Task Stats", f"📋 Total: {total}\n✅ Completed: {completed}\n❌ Pending: {pending}")
+
+# Toggle theme
+def toggle_theme():
+    global is_dark_theme
+    is_dark_theme = not is_dark_theme
+
+    # Light Theme
+    if not is_dark_theme:
+        root.config(bg="white")
+        listbox.config(bg="white", fg="black", selectbackground="#cccccc")
+        task_entry.config(bg="white", fg="black", insertbackground="black")
+        theme_btn.config(text="🌙 Dark Theme", bg="#f0f0f0", fg="black")
+    else:
+        # Dark Theme
+        root.config(bg="#2e2e2e")
+        listbox.config(bg="#3c3c3c", fg="white", selectbackground="#666666")
+        task_entry.config(bg="#3c3c3c", fg="white", insertbackground="white")
+        theme_btn.config(text="🌞 Light Theme", bg="#444444", fg="white")
+
+    # Update background of buttons
+    for widget in root.winfo_children():
+        if isinstance(widget, tk.Button) and widget != theme_btn:
+            widget.config(bg=("#1F2937" if not is_dark_theme else "#555"), fg=("white" if is_dark_theme else "white"))
+    update_listbox()
+
+# Update the listbox with tasks
+def update_listbox():
+    listbox.delete(0, tk.END)
+    for i, task in enumerate(tasks, 1):
+        symbol = "✅" if task["completed"] else "❌"
+        display = f"{i}. {symbol} {task['title']} ({task['time']})"
+        listbox.insert(tk.END, display)
+
+        # Styling with color-coded backgrounds
+        if task["completed"]:
+            listbox.itemconfig(tk.END, {'bg': '#d4edda' if not is_dark_theme else '#355e3b', 'fg': '#155724' if not is_dark_theme else '#aaffaa'})
         else:
-            print("Invalid choice. Please try again.")
+            listbox.itemconfig(tk.END, {'bg': '#fff3cd' if not is_dark_theme else '#664d00', 'fg': '#856404' if not is_dark_theme else '#ffd966'})
 
-# Run the program
-if __name__ == "__main__":
-    main()
+# Task entry
+task_entry = tk.Entry(root, width=45, font=("Arial", 14))
+task_entry.pack(pady=10)
+
+# Add task button
+add_btn = tk.Button(root, text="➕ Add Task", bg="#1F2937", fg="white", font=("Arial", 12), width=12, command=add_task)
+add_btn.pack()
+
+# Listbox
+listbox = tk.Listbox(root, width=65, height=18, font=("Arial", 11), selectbackground="#8fa8f3", activestyle="none")
+listbox.pack(pady=15)
+
+# Scrollbar
+scrollbar = tk.Scrollbar(root)
+scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+listbox.config(yscrollcommand=scrollbar.set)
+scrollbar.config(command=listbox.yview)
+
+# Button frame
+btn_frame = tk.Frame(root)
+btn_frame.pack(pady=10)
+
+# Buttons
+done_btn = tk.Button(btn_frame, text="✅ Done", bg="green", fg="white", width=14, command=mark_done)
+done_btn.grid(row=0, column=0, padx=5)
+
+stats_btn = tk.Button(btn_frame, text="📊 View Stats", bg="blue", fg="white", width=14, command=view_stats)
+stats_btn.grid(row=0, column=1, padx=5)
+
+del_btn = tk.Button(btn_frame, text="🗑️ Delete", bg="red", fg="white", width=14, command=delete_task)
+del_btn.grid(row=0, column=2, padx=5)
+
+# Theme toggle button
+theme_btn = tk.Button(root, text="🌙 Dark Theme", bg="#f0f0f0", fg="black", font=("Arial", 11), width=20, command=toggle_theme)
+theme_btn.pack(pady=8)
+
+# Start app
+toggle_theme()  # Start in dark mode if you prefer, comment out to start in light
+toggle_theme()  # Call again to return to default (light)
+root.mainloop()
